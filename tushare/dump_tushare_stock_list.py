@@ -2,8 +2,12 @@ import tushare as ts
 import os
 import datetime
 import pandas
-ts.set_token(os.environ["TUSHARE"])
-pro=ts.pro_api()
+#ts.set_token(os.environ["TUSHARE"])
+#pro=ts.pro_api()
+token=os.environ["TUSHARE"]
+pro=ts.pro_api(token,timeout=9000)
+pro._DataApi__token = token # 保证有这个代码，不然不可以获取
+pro._DataApi__http_url = 'http://lianghua.9vvn.com'  # 保证有这个代码，不然不可以获取
 d_data = pro.stock_basic(list_status="D", fields=["ts_code","symbol","exchange","list_date","delist_date"])
 d_data["delist_date"] = pandas.to_datetime(d_data["delist_date"], format="%Y%m%d")
 d_data["delist_date"] = d_data["delist_date"].dt.strftime("%Y-%m-%d")

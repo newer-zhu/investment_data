@@ -5,8 +5,11 @@ import pandas
 import fire
 import time
 
-ts.set_token(os.environ["TUSHARE"])
-pro=ts.pro_api()
+#ts.set_token(os.environ["TUSHARE"])
+token=os.environ["TUSHARE"]
+pro=ts.pro_api(token, timeout=6000)
+pro._DataApi__token = token # 保证有这个代码，不然不可以获取
+pro._DataApi__http_url = 'http://lianghua.9vvn.com'  # 保证有这个代码，不然不可以获取
 file_path = os.path.dirname(os.path.realpath(__file__))
 
 

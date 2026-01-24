@@ -39,8 +39,8 @@ if [[ $status_output == *"nothing to commit, working tree clean"* ]]; then
 else
     echo "Changes found. Committing and pushing..."
     # Run the necessary commands
-    dolt commit -m "Daily update"
-    dolt push --force origin master
+    #dolt commit -m "Daily update"
+    #dolt push --force origin master
     echo "Changes committed and pushed."
 fi
 

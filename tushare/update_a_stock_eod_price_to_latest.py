@@ -7,8 +7,12 @@ import time
 from sqlalchemy import create_engine
 import pymysql
 
-ts.set_token(os.environ["TUSHARE"])
-pro=ts.pro_api()
+#ts.set_token(os.environ["TUSHARE"])
+#pro=ts.pro_api()
+token=os.environ["TUSHARE"]
+pro=ts.pro_api(token,timeout=7000)
+pro._DataApi__token = token # 保证有这个代码，不然不可以获取
+pro._DataApi__http_url = 'http://lianghua.9vvn.com'  # 保证有这个代码，不然不可以获取
 
 def get_trade_cal(start_date, end_date):
     df = pro.trade_cal(exchange='SSE', is_open='1',
