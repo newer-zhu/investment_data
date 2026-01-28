@@ -1,6 +1,7 @@
 set -e
 set -x
-WORKING_DIR=${1} 
+WORKING_DIR=${1}
+MODE=${2:-incremental} 
 QLIB_REPO=${2:-https://github.com/microsoft/qlib.git} 
 
 if ! command -v dolt &> /dev/null
@@ -22,7 +23,7 @@ sleep 5s
 
 cd $WORKING_DIR/investment_data
 mkdir -p ./qlib/qlib_source
-python3 ./qlib/dump_all_to_qlib_source.py
+python3 ./qlib/dump_all_to_qlib_source.py --mode=${MODE}
 
 export PYTHONPATH=$PYTHONPATH:$WORKING_DIR/qlib/scripts
 cd ./qlib
