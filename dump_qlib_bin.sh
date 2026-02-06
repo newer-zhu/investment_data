@@ -3,7 +3,15 @@ set -x
 WORKING_DIR=${1}
 MODE=${2:-incremental} 
 QLIB_REPO=${2:-https://github.com/microsoft/qlib.git} 
+FINANCE=false
 
+for arg in "$@"; do
+    case "$arg" in
+        --finance)
+            FINANCE=true
+            ;;
+    esac
+done
 if ! command -v dolt &> /dev/null
 then
     curl -L https://github.com/dolthub/dolt/releases/latest/download/install.sh | bash
@@ -23,28 +31,30 @@ sleep 5s
 
 cd $WORKING_DIR/investment_data
 mkdir -p ./qlib/qlib_source
-python3 ./qlib/dump_all_to_qlib_source.py --mode=${MODE}
-
+#python3 ./qlib/dump_all_to_qlib_source.py --mode=${MODE}
+OUTPUT_DIR=${OUTPUT_DIR:-/output}
 export PYTHONPATH=$PYTHONPATH:$WORKING_DIR/qlib/scripts
 cd ./qlib
-python3 ./normalize.py normalize_data --source_dir ./qlib_source/ --normalize_dir ./qlib_normalize --max_workers=16 --date_field_name="tradedate" 
-python3 $WORKING_DIR/qlib/scripts/dump_bin.py dump_all --data_path ./qlib_normalize/ --qlib_dir $WORKING_DIR/qlib_bin --date_field_name=tradedate --exclude_fields=tradedate,symbol
-python3 $WORKING_DIR/qlib/scripts/dump_bin.py dump_all \
-    --data_path $WORKING_DIR/fundamental \
-    --qlib_dir  $WORKING_DIR/qlib_fundamental \
-    --date_field_name=date \
-    --exclude_fields=date,symbol,end_date
+#python3 ./normalize.py normalize_data --source_dir ./qlib_source/ --normalize_dir ./qlib_normalize --max_workers=16 --date_field_name="tradedate" 
+python3 $WORKING_DIR/qlib/scripts/dump_bin.py dump_all --data_path ./qlib_normalize/ --qlib_dir ${OUTPUT_DIR}/qlib_bin --date_field_name=tradedate --exclude_fields=tradedate,symbol
+if $FINANCE; then
+	python3 $WORKING_DIR/qlib/scripts/dump_bin.py dump_update \
+    	--data_path $WORKING_DIR/fundamental \
+    	--qlib_dir  ${OUTPUT_DIR}/finance \
+    	--date_field_name=date \
+    	--exclude_fields=date,symbol,end_date
+fi
     
 mkdir -p ./qlib_index/
 python3 ./dump_index_weight.py 
 
 cd $WORKING_DIR/investment_data
-python3 ./tushare/dump_day_calendar.py $WORKING_DIR/qlib_bin/
+python3 ./tushare/dump_day_calendar.py ${OUTPUT_DIR}/qlib_bin/
 killall dolt
 
-cp qlib/qlib_index/csi* $WORKING_DIR/qlib_bin/instruments/
-mv $WORKING_DIR/qlib_bin /output/
-mv $WORKING_DIR/qlib_fundamental /output/
+cp qlib/qlib_index/csi* ${OUTPUT_DIR}/qlib_bin/instruments/
+#mv $WORKING_DIR/qlib_bin /output/
+#mv $WORKING_DIR/qlib_fundamental /output/
 #tar -czvf ./qlib_bin.tar.gz $WORKING_DIR/qlib_bin/
 #tar -czvf ./qlib_fundamental.tar.gz $WORKING_DIR/qlib_fundamental
 ls -lh ./qlib_bin.tar.gz
