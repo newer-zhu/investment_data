@@ -2,7 +2,7 @@ set -e
 set -x
 WORKING_DIR=${1}
 MODE=${2:-incremental} 
-QLIB_REPO=${2:-https://github.com/microsoft/qlib.git} 
+QLIB_REPO=${3:-https://github.com/microsoft/qlib.git} 
 FINANCE=false
 
 for arg in "$@"; do
@@ -31,11 +31,11 @@ sleep 5s
 
 cd $WORKING_DIR/investment_data
 mkdir -p ./qlib/qlib_source
-#python3 ./qlib/dump_all_to_qlib_source.py --mode=${MODE}
+python3 ./qlib/dump_all_to_qlib_source.py --mode=${MODE}
 OUTPUT_DIR=${OUTPUT_DIR:-/output}
 export PYTHONPATH=$PYTHONPATH:$WORKING_DIR/qlib/scripts
 cd ./qlib
-#python3 ./normalize.py normalize_data --source_dir ./qlib_source/ --normalize_dir ./qlib_normalize --max_workers=16 --date_field_name="tradedate" 
+python3 ./normalize.py normalize_data --source_dir ./qlib_source/ --normalize_dir ./qlib_normalize --max_workers=16 --date_field_name="tradedate" 
 python3 $WORKING_DIR/qlib/scripts/dump_bin.py dump_all --data_path ./qlib_normalize/ --qlib_dir ${OUTPUT_DIR}/qlib_bin --date_field_name=tradedate --exclude_fields=tradedate,symbol
 if $FINANCE; then
 	python3 $WORKING_DIR/qlib/scripts/dump_bin.py dump_update \
