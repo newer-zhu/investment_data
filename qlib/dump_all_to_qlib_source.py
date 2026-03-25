@@ -136,9 +136,7 @@ def main(mode="incremental"):
     output_dir = os.path.join(script_path, "qlib_source")
     os.makedirs(output_dir, exist_ok=True)
 
-    if mode == "full":
-        dump_full(engine, output_dir)
-    elif mode == "incremental":
+    if mode == "incremental":
         dump_incremental(engine, output_dir)
     else:
         raise ValueError(f"Unknown mode: {mode}")
