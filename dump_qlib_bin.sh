@@ -38,7 +38,7 @@ cd ./qlib
 python3 ./normalize.py normalize_data --source_dir ./qlib_source/ --normalize_dir ./qlib_normalize --max_workers=16 --date_field_name="tradedate" 
 cp -r /dolt/fundamental/* ./qlib_normalize
 echo "[INFO] Fundamental data copied to ./qlib_normalize and ready for dump_bin"
-python3 $WORKING_DIR/qlib/scripts/dump_bin.py dump_all --data_path ./qlib_normalize/ --qlib_dir ${OUTPUT_DIR}/qlib_bin --date_field_name=tradedate --exclude_fields=tradedate,symbol
+python3 $WORKING_DIR/qlib/scripts/dump_bin.py dump_all --data_path ./qlib_normalize/ --qlib_dir ${OUTPUT_DIR}/qlib_bin --date_field_name=tradedate --exclude_fields=tradedate,symbol,end_date
 if $FINANCE; then
 	python3 $WORKING_DIR/qlib/scripts/dump_bin.py dump_update \
     	--data_path $WORKING_DIR/fundamental \
