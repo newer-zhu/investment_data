@@ -36,16 +36,11 @@ OUTPUT_DIR=${OUTPUT_DIR:-/output}
 export PYTHONPATH=$PYTHONPATH:$WORKING_DIR/qlib/scripts
 cd ./qlib
 python3 ./normalize.py normalize_data --source_dir ./qlib_source/ --normalize_dir ./qlib_normalize --max_workers=16 --date_field_name="tradedate" 
-cp -r /dolt/fundamental/* ./qlib_normalize
-echo "[INFO] Fundamental data copied to ./qlib_normalize and ready for dump_bin"
-python3 $WORKING_DIR/qlib/scripts/dump_bin.py dump_all --data_path ./qlib_normalize/ --qlib_dir ${OUTPUT_DIR}/qlib_bin --date_field_name=tradedate --exclude_fields=tradedate,symbol,end_date
-if $FINANCE; then
-	python3 $WORKING_DIR/qlib/scripts/dump_bin.py dump_update \
-    	--data_path $WORKING_DIR/fundamental \
-    	--qlib_dir  ${OUTPUT_DIR}/finance \
-    	--date_field_name=date \
-    	--exclude_fields=date,symbol,end_date
+if [ "$FINANCE" = true ]; then
+    cp -r /dolt/fundamental/* ./qlib_normalize
+    echo "[INFO] Fundamental data copied to ./qlib_normalize and ready for dump_bin"
 fi
+python3 $WORKING_DIR/qlib/scripts/dump_bin.py dump_all --data_path ./qlib_normalize/ --qlib_dir ${OUTPUT_DIR}/qlib_bin --date_field_name=tradedate --exclude_fields=tradedate,symbol,end_date
     
 mkdir -p ./qlib_index/
 python3 ./dump_index_weight.py 
