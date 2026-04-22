@@ -36,6 +36,9 @@ OUTPUT_DIR=${OUTPUT_DIR:-/output}
 export PYTHONPATH=$PYTHONPATH:$WORKING_DIR/qlib/scripts
 cd ./qlib
 python3 ./normalize.py normalize_data --source_dir ./qlib_source/ --normalize_dir ./qlib_normalize --max_workers=16 --date_field_name="tradedate" 
+
+find ./qlib_normalize -type f -name '*-fi.csv' -delete
+
 if [ "$FINANCE" = true ]; then
     cp -r /dolt/fundamental/* ./qlib_normalize
     echo "[INFO] Fundamental data copied to ./qlib_normalize and ready for dump_bin"
