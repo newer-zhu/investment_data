@@ -1,17 +1,33 @@
 set -e
 set -x
-WORKING_DIR=${1}
-MODE=${2:-incremental} 
-QLIB_REPO=${3:-https://github.com/microsoft/qlib.git} 
 FINANCE=false
+POSITIONAL=()
 
-for arg in "$@"; do
-    case "$arg" in
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         --finance)
             FINANCE=true
+            shift
+            ;;
+        --)
+            shift
+            while [[ $# -gt 0 ]]; do
+                POSITIONAL+=("$1")
+                shift
+            done
+            ;;
+        *)
+            POSITIONAL+=("$1")
+            shift
             ;;
     esac
 done
+
+set -- "${POSITIONAL[@]}"
+WORKING_DIR=${1:?"Usage: $0 WORKING_DIR [MODE] [QLIB_REPO] [--finance]"}
+MODE=${2:-incremental}
+QLIB_REPO=${3:-https://github.com/microsoft/qlib.git}
+
 if ! command -v dolt &> /dev/null
 then
     curl -L https://github.com/dolthub/dolt/releases/latest/download/install.sh | bash
