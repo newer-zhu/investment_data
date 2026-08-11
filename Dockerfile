@@ -5,7 +5,7 @@ RUN apt update && apt install -y git psmisc zip gcc g++ jq
 RUN mkdir -p /dolt
 RUN mkdir -p /investment_data
 
-RUN cd /investment_data && git init && git config --global http.postBuffer 524288000 && git config --global http.maxRequests 100 && git pull https://github.com/chenditc/investment_data.git
+RUN cd /investment_data && git init && git config --global http.postBuffer 524288000 && git config --global http.maxRequests 100 && git pull https://github.com/newer-zhu/investment_data.git
 RUN  pip install numpy==1.23.5 && pip install --upgrade cython \
    && cd / && git clone https://github.com/microsoft/qlib.git && mv /qlib /qlib_source \
    && cd /qlib_source/ && pip install -e .[dev] && pip install -r scripts/data_collector/yahoo/requirements.txt 
