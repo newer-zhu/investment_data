@@ -20,10 +20,23 @@ class CrowdSourceNormalize(yahoo_collector.YahooNormalizeCN1d):
     result_df["amount"] = df["amount"]
     return result_df
 
+class FixedNormalize(Normalize):
+  """Fix qlib's Normalize.format_data, which hardcodes the column name "date"
+  and therefore always drops the last row when a custom --date_field_name
+  (e.g. tradedate) is used."""
+
+  def format_data(self, df: pd.DataFrame) -> pd.DataFrame:
+    if self.interval == "1d":
+      try:
+        pd.to_datetime(df.iloc[-1][self._date_field_name], format="%Y-%m-%d", errors="raise")
+      except Exception:
+        df = df.iloc[:-1]
+    return df
+
 def normalize_crowd_source_data(source_dir=None, normalize_dir=None, max_workers=1, interval="1d", date_field_name="tradedate", symbol_field_name="symbol"):
     import multiprocessing as mp
     mp.set_start_method("spawn", force=True)
-    yc = Normalize(
+    yc = FixedNormalize(
         source_dir=source_dir,
         target_dir=normalize_dir,
         normalize_class=CrowdSourceNormalize,
