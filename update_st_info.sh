@@ -16,10 +16,10 @@ set -x
 DOLT_DIR=/dolt/investment_data
 ST_INFO_DIR=/investment_data/tushare/st_info
 BRANCH=feature/is_st
-# 首次建表时的回填起点（YYYY-MM-DD）。
-# 官方 stock_st 数据从 20000101 起；当前代理仅确认 2018 年后有数据，
-# 若代理可提供更早数据，可设环境变量 ST_BACKFILL_START=2000-01-01。
-ST_BACKFILL_START=${ST_BACKFILL_START:-2018-01-01}
+# 首次建表时的回填起点（YYYY-MM-DD，仅当表为空且未指定 ST_FORCE_START 时使用）。
+# 官方 stock_st 数据从 20000101 起；当前代理仅确认 2016-08 起有零散数据、2025 前后才连续，
+# 若代理可提供更早数据，可设 ST_BACKFILL_START=2000-01-01。
+ST_BACKFILL_START=${ST_BACKFILL_START:-2016-08-01}
 
 cd "$DOLT_DIR"
 
@@ -53,18 +53,24 @@ dolt sql -q "create table if not exists ts_st_info (
     primary key(symbol, tradedate)
 )"
 
-# 4. 增量采集：起点 = 表内最大交易日；空表用 ST_BACKFILL_START
-LAST_DATE=$(dolt sql -q "select ifnull(max(tradedate), '$ST_BACKFILL_START') from ts_st_info" -r csv | tail -1 | tr -d '\r')
-LAST_DATE_INT=$(date -d "$LAST_DATE" +%Y%m%d)
-echo "[INFO] fetch ST info from $LAST_DATE_INT"
-python3 /investment_data/tushare/dump_st_info.py --start_date="$LAST_DATE_INT"
+# 4. 确定采集起点
+#    - 指定 ST_FORCE_START 时：强制从该日期回填（用于补历史，可早于表内已有数据）
+#    - 否则：从表内最大交易日增量采集；空表用 ST_BACKFILL_START
+if [ -n "${ST_FORCE_START:-}" ]; then
+    START_DATE="$ST_FORCE_START"
+else
+    START_DATE=$(dolt sql -q "select ifnull(max(tradedate), '$ST_BACKFILL_START') from ts_st_info" -r csv | tail -1 | tr -d '\r')
+fi
+START_INT=$(date -d "$START_DATE" +%Y%m%d)
+echo "[INFO] fetch ST info from $START_INT"
+python3 /investment_data/tushare/dump_st_info.py --start_date="$START_INT"
 
-# 5. 只导入比表内最大日期更新的文件（upsert 幂等）
+# 5. 导入日期 >= 采集起点的文件（upsert 幂等；同时覆盖回填与增量两种场景）
 for f in "$ST_INFO_DIR"/*.csv; do
     [ -f "$f" ] || continue
     d=$(basename "$f" .csv)                 # 2025-08-15
     d_int=$(date -d "$d" +%Y%m%d)
-    if [ "$d_int" -gt "$LAST_DATE_INT" ]; then
+    if [ "$d_int" -ge "$START_INT" ]; then
         dolt table import -u ts_st_info "$f" || echo "[WARN] import failed: $f"
     fi
 done
