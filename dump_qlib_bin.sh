@@ -57,10 +57,35 @@ dolt sql -q "create table if not exists ts_st_info (
 )" >/dev/null 2>&1 || echo "[WARN] create ts_st_info failed"
 ST_DIR="$WORKING_DIR/investment_data/tushare/st_info"
 if [ -d "$ST_DIR" ]; then
+    # 增量导入（默认）：只导入比 master 表内已有最大交易日更新的 CSV，避免每天全量重导。
+    #   首次/空表自动全量；需要强制全量重建时设 ST_FULL_IMPORT=1。
+    # 合并成一个文件一次性 import，避免 2400+ 个逐文件 import（单次约 40 分钟）。
+    MAX_DATE=0000-00-00
+    if [ -z "${ST_FULL_IMPORT:-}" ]; then
+        MAX_DATE=$(dolt sql -q "select ifnull(max(tradedate), '0000-00-00') from ts_st_info" -r csv | tail -1 | tr -d '\r')
+    fi
+    MERGED="$WORKING_DIR/investment_data/tushare/st_info_merged.csv"
+    : > "$MERGED"
+    header_done=0
     for f in "$ST_DIR"/*.csv; do
         [ -f "$f" ] || continue
-        dolt table import -u ts_st_info "$f" >/dev/null 2>&1 || echo "[WARN] import failed: $f"
+        d=$(basename "$f" .csv)
+        if [[ "$d" > "$MAX_DATE" ]]; then
+            if [ "$header_done" -eq 0 ]; then
+                cat "$f" > "$MERGED"
+                header_done=1
+            else
+                tail -n +2 "$f" >> "$MERGED"
+            fi
+        fi
     done
+    if [ "$header_done" -eq 1 ]; then
+        dolt table import -u ts_st_info "$MERGED" >/dev/null 2>&1 || echo "[WARN] import failed: $MERGED"
+        echo "[INFO] imported ST info newer than $MAX_DATE into ts_st_info"
+    else
+        echo "[INFO] no new ST info to import (table already has up to $MAX_DATE)"
+    fi
+    rm -f "$MERGED"
 else
     echo "[WARN] $ST_DIR not found, is_st will be unknown"
 fi
