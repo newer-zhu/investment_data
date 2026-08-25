@@ -32,35 +32,87 @@ def get_last_date(csv_path):
         return None
 
 
+def ts_st_info_exists(engine):
+    """ts_st_info 表是否存在（ST 数据是否可用）。不存在则不加 is_st，保证失败安全。"""
+    try:
+        df = pd.read_sql(
+            """
+            SELECT COUNT(*) AS n
+            FROM information_schema.tables
+            WHERE table_schema = DATABASE() AND table_name = 'ts_st_info'
+            """,
+            engine
+        )
+        return int(df["n"].iloc[0]) > 0
+    except Exception:
+        return False
+
+
+def build_sql(has_st, with_date=False):
+    """构造 dump SQL；has_st 时附带 ts_st_info LEFT JOIN 计算 is_st。
+
+    is_st 语义：1=ST；0=该交易日 ST 数据集已覆盖但不在 ST 名单（确认非 ST）；
+    NULL=该交易日无 ST 数据（未知）。
+    """
+    select_parts = [
+        "p.*",
+        """CASE
+               WHEN p.volume = 0 OR p.volume IS NULL THEN NULL
+               ELSE p.amount / p.volume * 10
+           END AS vwap""",
+    ]
+    join_part = ""
+    if has_st:
+        select_parts.append("""CASE
+               WHEN st.ts_code IS NOT NULL THEN 1
+               WHEN p.tradedate IN (SELECT DISTINCT tradedate FROM ts_st_info) THEN 0
+               ELSE NULL
+           END AS is_st""")
+        join_part = "LEFT JOIN ts_st_info st ON st.symbol = p.symbol AND st.tradedate = p.tradedate"
+
+    date_filter = "\nAND p.tradedate > %s" if with_date else ""
+    sep = ",\n       "
+    return f"""
+SELECT {sep.join(select_parts)}
+FROM final_a_stock_eod_price p
+{join_part}
+WHERE p.symbol = %s{date_filter}
+ORDER BY p.tradedate
+"""
+
+
+def dump_symbol_full(engine, output_dir, symbol, sql):
+    """全量重写某 symbol 的 csv（用于旧 csv 缺 is_st 列的过渡补齐）"""
+    df = pd.read_sql(sql, engine, params=(symbol,))
+    df.to_csv(os.path.join(output_dir, f"{symbol}.csv"), index=False)
+
+
 def dump_full(engine, output_dir):
+    has_st = ts_st_info_exists(engine)
+    print(f"ts_st_info available: {has_st}")
+
     symbols = get_all_symbols(engine)
     print(f"[FULL] Total symbols: {len(symbols)}")
+
+    sql = build_sql(has_st)
 
     for symbol in symbols:
         print("[FULL] Dumping:", symbol)
         csv_path = os.path.join(output_dir, f"{symbol}.csv")
 
-        df = pd.read_sql(
-            """
-            SELECT *,
-                   CASE
-                       WHEN volume = 0 OR volume IS NULL THEN NULL
-                       ELSE amount / volume * 10
-                   END AS vwap
-            FROM final_a_stock_eod_price
-            WHERE symbol = %s
-            ORDER BY tradedate
-            """,
-            engine,
-            params=(symbol,)
-        )
-
+        df = pd.read_sql(sql, engine, params=(symbol,))
         df.to_csv(csv_path, index=False)
 
 
 def dump_incremental(engine, output_dir, start_date=None):
+    has_st = ts_st_info_exists(engine)
+    print(f"ts_st_info available: {has_st}")
+
     symbols = get_all_symbols(engine)
     print(f"[INCREMENTAL] Total symbols: {len(symbols)}")
+
+    sql_full = build_sql(has_st, with_date=False)
+    sql_delta = build_sql(has_st, with_date=True)
 
     for symbol in symbols:
         csv_path = os.path.join(output_dir, f"{symbol}.csv")
@@ -72,34 +124,27 @@ def dump_incremental(engine, output_dir, start_date=None):
             effective_start_date = get_last_date(csv_path)
 
         if effective_start_date:
-            sql = """
-            SELECT *,
-                   CASE
-                       WHEN volume = 0 OR volume IS NULL THEN NULL
-                       ELSE amount / volume * 10
-                   END AS vwap
-            FROM final_a_stock_eod_price
-            WHERE symbol = %s AND tradedate > %s
-            ORDER BY tradedate
-            """
+            sql = sql_delta
             params = (symbol, effective_start_date)
         else:
-            sql = """
-            SELECT *,
-                   CASE
-                       WHEN volume = 0 OR volume IS NULL THEN NULL
-                       ELSE amount / volume * 10
-                   END AS vwap
-            FROM final_a_stock_eod_price
-            WHERE symbol = %s
-            ORDER BY tradedate
-            """
+            sql = sql_full
             params = (symbol,)
 
         df = pd.read_sql(sql, engine, params=params)
 
         if df.empty:
             continue
+
+        # 旧 csv 缺少 is_st 列时，整文件重写补齐，避免追加造成列错位
+        if os.path.exists(csv_path):
+            try:
+                old_cols = pd.read_csv(csv_path, nrows=0).columns
+            except Exception:
+                old_cols = []
+            if "is_st" in df.columns and "is_st" not in old_cols:
+                dump_symbol_full(engine, output_dir, symbol, sql_full)
+                print(f"[MIGRATE] {symbol}: rewrote csv with is_st")
+                continue
 
         df.to_csv(
             csv_path,

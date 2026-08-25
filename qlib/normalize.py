@@ -18,6 +18,9 @@ class CrowdSourceNormalize(yahoo_collector.YahooNormalizeCN1d):
     # amount should be kept as original value, so that adjusted volume * adjust vwap = amount
     result_df = super()._manual_adj_data(df)
     result_df["amount"] = df["amount"]
+    # is_st 不是价格字段，不能被复权（super() 会把所有列除以首日 close），从原始 df 恢复
+    if "is_st" in df.columns:
+      result_df["is_st"] = df["is_st"]
     return result_df
 
 class FixedNormalize(Normalize):

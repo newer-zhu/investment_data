@@ -40,6 +40,32 @@ mkdir -p $WORKING_DIR/dolt
 
 cd $WORKING_DIR/dolt/investment_data
 dolt pull origin master
+
+# ============ ST 信息（is_st）—— 失败安全，不影响既有流程 ============
+# ts_st_info 在 feature/is_st dolt 分支上；dump 走 master。
+# 这里从本地 tushare/st_info CSV 重建 ts_st_info（无 CSV 则建空表，is_st 全为未知）。
+# 任何一步失败都只影响 is_st，不影响量价 dump。
+echo "Importing ST info (ts_st_info) from local st_info csv"
+dolt sql -q "create table if not exists ts_st_info (
+    ts_code varchar(16),
+    name varchar(64),
+    tradedate date,
+    type varchar(16),
+    type_name varchar(32),
+    symbol varchar(16),
+    primary key(symbol, tradedate)
+)" >/dev/null 2>&1 || echo "[WARN] create ts_st_info failed"
+ST_DIR="$WORKING_DIR/investment_data/tushare/st_info"
+if [ -d "$ST_DIR" ]; then
+    for f in "$ST_DIR"/*.csv; do
+        [ -f "$f" ] || continue
+        dolt table import -u ts_st_info "$f" >/dev/null 2>&1 || echo "[WARN] import failed: $f"
+    done
+else
+    echo "[WARN] $ST_DIR not found, is_st will be unknown"
+fi
+# ========================================================================
+
 dolt sql-server &
 
 # wait for sql server start
