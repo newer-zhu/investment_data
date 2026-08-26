@@ -11,7 +11,8 @@ token = os.environ["TUSHARE"]
 pro = ts.pro_api(token, timeout=6000)
 pro._DataApi__token = token  # 保证有这个代码，不然不可以获取
 pro._DataApi__http_url = 'https://tuaremax.top'  # 保证有这个代码，不然不可以获取
-file_path = os.path.dirname(os.path.realpath(__file__))
+# ST 名单 CSV 输出目录（默认挂载目录 /output，宿主机可直接读取过滤 ST 股票）
+ST_INFO_DIR = os.environ.get("ST_INFO_DIR", "/output/st_info")
 
 # stock_st 单次请求最大返回行数（官方文档说明），超过会被截断（实测只返回最近 1000 行）
 MAX_ROWS_PER_REQ = 1000
@@ -40,7 +41,7 @@ def save_daily(data, skip_exists):
     data["symbol"] = data["ts_code"].str[7:9] + data["ts_code"].str[0:6]
 
     for td, day_data in data.groupby("tradedate"):
-        filename = f'{file_path}/st_info/{td}.csv'
+        filename = f'{ST_INFO_DIR}/{td}.csv'
         if skip_exists and os.path.isfile(filename):
             continue
         day_data.to_csv(filename, index=False)
@@ -69,8 +70,8 @@ def dump_st_info(start_date: str = "20000101", end_date: Optional[str] = None, s
     start_date = str(start_date)
     end_date = str(end_date) if end_date else datetime.datetime.now().strftime('%Y%m%d')
 
-    if not os.path.exists(f"{file_path}/st_info/"):
-        os.makedirs(f"{file_path}/st_info/")
+    if not os.path.exists(ST_INFO_DIR):
+        os.makedirs(ST_INFO_DIR)
 
     start = datetime.datetime.strptime(start_date, '%Y%m%d')
     end = datetime.datetime.strptime(end_date, '%Y%m%d')

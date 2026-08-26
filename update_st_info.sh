@@ -14,7 +14,8 @@ set -e
 set -x
 
 DOLT_DIR=/dolt/investment_data
-ST_INFO_DIR=/investment_data/tushare/st_info
+# ST 名单 CSV 目录（默认挂载目录 /output/st_info，宿主机可直接读取；dump_st_info.py 读同一环境变量）
+export ST_INFO_DIR=${ST_INFO_DIR:-/output/st_info}
 BRANCH=feature/is_st
 # 首次建表时的回填起点（YYYY-MM-DD，仅当表为空且未指定 ST_FORCE_START 时使用）。
 # 官方 stock_st 数据从 20000101 起；当前代理仅确认 2016-08 起有零散数据、2025 前后才连续，
