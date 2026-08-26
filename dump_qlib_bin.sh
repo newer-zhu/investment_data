@@ -68,6 +68,22 @@ cd $WORKING_DIR/investment_data
 python3 ./tushare/dump_day_calendar.py ${OUTPUT_DIR}/qlib_bin/
 killall dolt
 
+# ============ ST 名单（is_st）更新 —— 失败安全，绝不影响量价 bin ============
+# ST 名单来自 tushare stock_st（个人 token），增量写入 /output/st_info 供宿主机读取过滤 ST。
+# 放在 bin 生成之后：接口/token 到期或不可达时最多 30 分钟即放弃，只影响 is_st，不阻塞 bin。
+echo "Updating ST info -> /output/st_info"
+if [ -z "${TUSHARE:-}" ]; then
+    echo "[WARN] TUSHARE not set, skip ST info update (is_st)"
+else
+    LAST=$(ls /output/st_info/ 2>/dev/null | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}\.csv$' | sort | tail -1 | sed 's/\.csv$//; s/-//g')
+    START=${LAST:-20160801}
+    echo "[INFO] fetch ST info from $START"
+    if ! timeout 1800 python3 "$WORKING_DIR/investment_data/tushare/dump_st_info.py" --start_date="$START"; then
+        echo "[WARN] ST info update failed/skipped (is_st), continuing"
+    fi
+fi
+# ========================================================================
+
 cp qlib/qlib_index/csi* ${OUTPUT_DIR}/qlib_bin/instruments/
 #mv $WORKING_DIR/qlib_bin /output/
 #mv $WORKING_DIR/qlib_fundamental /output/
