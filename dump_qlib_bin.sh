@@ -39,6 +39,13 @@ mkdir -p $WORKING_DIR/dolt
 [ ! -d "$WORKING_DIR/qlib" ] && git clone $QLIB_REPO "$WORKING_DIR/qlib"
 
 cd $WORKING_DIR/dolt/investment_data
+# 强制让 master 对齐团队远端（chenditc/investment_data），清理上次运行遗留（如废弃的 ts_st_info 未提交表），
+# 否则 dolt pull 会因工作区未提交改动而失败（cannot merge with uncommitted changes）。
+dolt checkout master 2>/dev/null || true
+dolt table rm ts_st_info 2>/dev/null || true
+dolt fetch origin master
+dolt reset origin/master
+dolt checkout .
 dolt pull origin master
 dolt sql-server &
 
