@@ -7,7 +7,10 @@ import time
 from typing import Optional
 
 # tushare版本 1.4.24
-token = os.environ["TUSHARE"]
+token = os.environ.get("TUSHARE")
+if not token:
+    print("[WARN] TUSHARE env not set, skip ST info fetch (is_st)")
+    raise SystemExit(0)
 pro = ts.pro_api(token, timeout=6000)
 pro._DataApi__token = token  # 保证有这个代码，不然不可以获取
 pro._DataApi__http_url = 'https://tuaremax.top'  # 保证有这个代码，不然不可以获取
@@ -19,12 +22,14 @@ MAX_ROWS_PER_REQ = 1000
 
 
 def get_st_info(start_date, end_date):
-    for _ in range(3):
+    for attempt in range(3):
         try:
             return pro.stock_st(start_date=start_date, end_date=end_date)
         except Exception as e:
-            print(e)
+            print(f"[WARN] stock_st({start_date},{end_date}) attempt {attempt + 1}/3 failed: {e}")
             time.sleep(1)
+    print(f"[WARN] stock_st({start_date},{end_date}) all attempts failed, skip (is_st unavailable)")
+    return None
 
 
 def save_daily(data, skip_exists):

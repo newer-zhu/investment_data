@@ -64,7 +64,10 @@ else
 fi
 START_INT=$(date -d "$START_DATE" +%Y%m%d)
 echo "[INFO] fetch ST info from $START_INT"
-python3 /investment_data/tushare/dump_st_info.py --start_date="$START_INT"
+# 接口/token 到期或不可达时 15 分钟内放弃，不阻塞后续流程（失败由 if 承接，不触发 set -e 退出）
+if ! timeout 900 python3 /investment_data/tushare/dump_st_info.py --start_date="$START_INT"; then
+    echo "[WARN] ST info fetch failed/timed out, skip (is_st) and continue"
+fi
 
 # 5. 导入日期 >= 采集起点的文件（upsert 幂等；同时覆盖回填与增量两种场景）
 for f in "$ST_INFO_DIR"/*.csv; do

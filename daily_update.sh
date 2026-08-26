@@ -9,12 +9,12 @@ dolt fetch origin master
 dolt reset origin/master
 dolt checkout .
 
-# ============ ST 信息（is_st）更新 —— 失败安全，不影响既有流程 ============
+# ============ ST 信息（is_st）更新 —— 失败安全，绝不影响量价 dump ============
+# stock_st 接口/token 到期或不可达时，ST 块最多 30 分钟即放弃，不阻塞量价更新。
 # update_st_info.sh 内部会切到 dolt feature/is_st 分支，失败或成功后都回到 master。
-# 即便这里失败，也不影响下面的 index weight / price / stock price 等既有更新。
 echo "Updating ST info (is_st)"
-if ! bash /investment_data/update_st_info.sh; then
-    echo "[WARN] ST info (is_st) update failed, continuing with existing flow"
+if ! timeout 1800 bash /investment_data/update_st_info.sh; then
+    echo "[WARN] ST info (is_st) update failed/skipped, continuing with existing flow"
 fi
 # ========================================================================
 
